@@ -1,0 +1,21 @@
+-> Storage -> pool
+create pool ->next
+select the disk and name it and create
+add dataset to it with some names
+
+WebDav
+services-> turn on WebDav and NFS
+->WebDav-> edit -> http authuentication(chooose no auth) change port
+
+->sharing -> Webdav -> add (name and select the path of the pool created, untick all settings)
+-> go to browser and search 192.168.56.101:8084/(name of webdav)
+
+NFS
+->sharing ->nfs -> add ->select path ->select all dir 
+terminal
+sudo mkdir /mnt/vijeth
+sudo mount 192.168.56.101:/(path of nfs mount) /mnt/vijeth
+cd /mnt/vijeth
+ls
+now add dataset in storage and check again
+
