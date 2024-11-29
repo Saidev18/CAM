@@ -1,0 +1,6 @@
+https://download.freenas.org/11.3/STABLE/RELEASE/x64/
+(freenas link)
+
+(virtualbox link)
+
+https://www.techrepublic.com/article/install-virtualbox-ubuntu/
