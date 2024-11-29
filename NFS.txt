@@ -5,6 +5,7 @@ sudo nano /deepthinfs/text.txt
 sudo chown nobody:nogroup /deepthinfs
 sudo chmod 777 /deepthinfs
 sudo nano /etc/exports
+add(/deepthinfs 192.168.0.186(rw,sync,no_subtree_check)
 sudo exportfs -a
 sudo systemctl restart nfs-kernel-server.service
 
