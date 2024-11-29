@@ -1,0 +1,20 @@
+sudo apt-get install openssh-server
+172.16.51.29    	master
+172.16.51.128		client
+172.16.51.37		client1
+
+Step 1:  resolve the hostnames in /etc/hosts
+
+Step 2: ssh-keygen -t rsa -b 4096
+
+sudo ssh-copy-id msis@client
+sudo ssh-copy-id msis@client1
+
+Step 4: Login into the remote machines and set permissions
+ssh msis@client1"chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
+ssh msis@client"chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
+
+Sudo ufw allow ssh   (on both master and client)
+
+ssh msis@client1
+
