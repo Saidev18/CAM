@@ -15,3 +15,33 @@ sudo mkdir -p /vijethnfs
 sudo apt update
 sudo mount 192.168.0.144:/deepthinfs /vijethnfs
 ls /vijethnfs
+
+
+or
+
+Master pov:
+sudo apt update
+sudo apt install nfs-kernel-server
+sudo mkdir -p /srv/nfs
+sudo chown nobody:nogroup /srv/nfs
+sudo chmod 777 /srv/nfs
+sudo exportfs -a
+sudo systemctl restart nfs-kernel-server
+sudo systemctl enable nfs-kernel-server
+sudo touch /srv/nfs/testfile.txt
+
+Client pov:
+sudo apt update
+sudo apt install nfs-common
+sudo mkdir -p /mnt/nfs
+sudo mount master_ip:/srv/nfs /mnt/nfs
+df -h 
+
+Master pov:
+sudo touch /srv/nfs/testfile1.txt
+
+Client pov:
+ls /mnt/nfs
+
+
+
