@@ -4,3 +4,28 @@ https://download.freenas.org/11.3/STABLE/RELEASE/x64/
 (virtualbox link)
 
 https://www.techrepublic.com/article/install-virtualbox-ubuntu/
+
+https://www.virtualbox.org/wiki/Linux_Downloads
+cd Downloads/
+sudo dpkg -i virtualbox.deb
+sudo apt -f install
+
+if safe boot error
+first f12 and disable it
+then
+sudo apt-get remove --purge virtualbox*
+sudo apt-get autoremove --purge
+sudo apt-get remove --purge virtualbox-dkms
+rm -rf ~/.config/VirtualBox
+sudo rm -rf /etc/vbox /usr/lib/virtualbox
+
+Update GRUB (if necessary)
+sudo update-grub
+
+Clean Up
+dpkg -l | grep virtualbox
+
+If you find any, remove them with:
+sudo apt-get remove --purge <package-name>
+
+now do dpkg again
