@@ -11,11 +11,18 @@ services-> turn on WebDav and NFS
 -> go to browser and search 192.168.56.101:8084/(name of webdav)
 
 NFS
+sudo apt update
+sudo apt install nfs-common
+or 
+sudo apt update
+sudo apt install nfs-common nfs-kernel-server
+
 ->sharing ->nfs -> add ->select path ->select all dir 
 terminal
-sudo mkdir /mnt/vijeth
-sudo mount 192.168.56.101:/(path of nfs mount) /mnt/vijeth
-cd /mnt/vijeth
+sudo mkdir mnt/dev
+sudo mount 192.168.56.101:/mnt/pool1/dataset1 mnt/dev
+cd mnt/dev
 ls
-now add dataset in storage and check again
+now add dataset to the dataset1 in storage->pool and do ls
+
 
