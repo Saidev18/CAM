@@ -1,0 +1,129 @@
+ 7. Design a highly available, fault tolerant, scalable architecture for hosting the café dynamic website using AWS Global infrastructure such as to achieve availability and application should be able to scale based on-demand request of the customers. 
+
+
+1)Go to Instances
+
+2)Click on Web Server 1 and go to Actions
+
+3)click on image and templates->create image
+
+4)image name: myami
+
+5)image description: this is an ami for launch template
+
+6)click on Tag image and snapshots together
+Key: Name 
+Value: myami
+
+7)create image
+
+8)Go to Target Groups in the side panel
+
+9)Click on create target group
+
+10)Target group name: ELBtargetgroups
+
+11)select vpc as labvpc
+
+12)Tags
+Key: Name
+value: ELBTargetgroup
+
+13)NEXT
+
+14)Create target group
+
+15)Go to Load Balancers in the side panel
+
+16)Click on Create load balancer
+
+17)Click in application load balancer
+
+18)Load balancer name: MYELB
+
+19)Select LabVPC
+
+20)under availability zones
+give subnets as
+public subnet 1
+public subnet 2
+
+21)Give security group as Web security group
+
+22)under listener give ELBtargetgroups for HTTP protocol
+
+23)Load balancer tags
+key: Name
+value: MYELB
+
+24)create load balancer
+
+25)Go to launch templates in the side panel under instances
+
+26)click on create launch template
+
+27)Launch template name: MyautolaunchTemplate
+
+28)Template version description: This is a launch template for cafe app
+
+29)select the check box: provide guidance to help.....
+
+30)Select My AMIs
+select owned by me->select your ami you have created
+
+31)t2.micro
+
+32)vockey
+
+33)select your security group: web sec group..
+
+34)create launch template
+
+35)select your launch template->Actions->create Auto Scaling group
+
+36)Name: MYAsg
+
+37)Next
+
+38)Under network select LabVPC
+
+39)Select private subnet 1 and private subnet 2
+
+40)Next
+
+41)Select attach to an existing load balancer
+
+42)choose from your load balancer target group
+: ELBtargetgroups
+
+43)tick all the checkboxes under Health checks
+
+44)Tick the box: Enable group metrics... clouWatch
+
+45)Next
+
+46)Under group size
+Desired capacity: 2
+
+47)Under scaling
+Min desired: 2
+max desired: 6
+
+48)Select Target tracking scaling policy
+
+49)Select instance warmup as 60 seconds
+
+50)Next, Next
+51)Tags
+Key: Name
+value: MYwebservers
+tick the checkbox: Tag new instances
+
+52)Next
+
+53)Create auto scaling group
+
+54)Go to load balancer
+select your load balancer
+
+55)Copy your load balancer DNS name and paste in the browser
