@@ -1,0 +1,251 @@
+
+Cloud formation (Automate Infrastructure)
+Architecting module 11
+
+Lambda
+Architecting module 14 serverlesss 
+
+EBS
+cloud foundation module 
+Module 7
+
+Monolithic to microservice 
+Architecting Module 14
+
+Load balancer 
+Architecting module 10
+
+
+EFS
+Cloud architecting
+Module 5 Guided Lab
+
+create user 'msis'@'%' identified with mysql_native_password by 'Msois@123';
+
+alter user 'msis'@'%' identified with mysql_native_password by 'Msois@123';
+
+grant all privileges on cafedb.* to 'msis'@'%' with grant option;
+
+
+
+##EC2  Standalone For LOAD BALANCER###############
+
+sudo git clone <ur>
+
+sudo mkdir /var/www//html/cafeapp
+
+cd Cafe_Dynamic_Website
+
+sudo cp -rf mompopcafe/* /var/www/html/cafeapp/.
+
+sudo nano /etc/apache2/sites-available/000-default.conf
+
+add this line to this file 
+
+/var/www/html/cafeapp
+
+sudo systemctl restart apache2
+
+sudo mysql -u root -p
+
+create database cafedb;
+
+create user 'msis'@'%' identified with mysql_native_password by 'Msois@123';
+alter user 'msis'@'%' identified with mysql_native_password by 'Msois@123';
+grant all privileges on cafedb.* to 'msis'@'%' with grant option;
+
+exit
+
+cd 
+
+cd Cafe_Dynamic_Website/mompopdb
+
+(check the create-db.sql file is there or not)
+
+sudo mysql -u msis -p
+Password:Msois@123
+
+show databases;
+
+use cafedb;
+
+source create-db.sql;
+
+show tables;
+
+exit;
+
+cd /var/www/html/cafeapp
+
+sudo nano getAppparameters.php
+
+dburl="localhost";
+dbname="cafedb";
+dbuser="msis"
+dbpassword="Msois@123"
+
+sudo systemctl restart apache2
+
+Now you your public ip in browser http://<publicip>
+
+Wow..Congratulations!!!!!@!!!!!!!!!!! You Have Successfully Created a Dynamic Website 
+
+Next go to instance and select actions in that -> image and template-> create image
+ 
+
+
+
+
+
+givename-cafeimage
+
+add tag
+
+->create image
+
+ STEP 2  check ami it will be apper<image>
+
+go to launch template in that = create
+
+give<template name>
+ 
+template version-> cafeweb template
+
+add tag
+
+select my ami-> select your created ami
+
+instance type-> t2.micro
+
+keypair
+
+dont select any subnets....
+
+create sg-><givename>
+
+select created vpc
+
+inbound security group add-> ssh and HTTP->anywhere
+
+in advance details->>
+
+cloudwatch monitoring = enable
+
+create launch template..........
+
+go to launch template - select created temp -> in actions-> create auto scaling group
+
+auto scaling group.....
+
+give name<acg>
+
+select your created template............................. next
+
+step 2
+
+select your vpc in network
+
+availiability zone->>  select your two private subnets next.......
+
+step 3
+
+no changes in that
+
+step 4...... 
+
+desired capacity= 2
+
+scaling=== min2 max6
+
+automatic scaling--- select target tracking policy
+
+metric type== avearge cpu utilization
+target value= 50
+
+instamce warmup=60
+
+in that last additional settings->> monitoring=select (cloudwatch metrics).........next
+
+step 5  no changes..........
+
+step 6 add tag
+
+ reveiw and create asg......
+
+go to asg see created will come
+
+go loadbalancers-> create load balancers-> select application load balancers
+
+give name <lb>
+
+network mapping -> select your vpc
+
+AZ select two public subnets in two availiabilty zones.....
+.................................................................................................................
+
+security group-> create a sg link
+
+give name
+
+select your vpc
+
+in bound rules-> ssh and htpp anywhere
+
+add tag
+
+create.........
+.................................................................................................................
+go back to your load balancers selcted  add your created secuirty group
+
+listerners and routing -> create target link
+
+choose target type-> instnance
+
+target group name-> <name>
+
+add tag 
+
+next.........
+
+select your registerd ec2 instance and select button below
+.............................................................................................................
+ got back load balancers and select your target group-> select created
+
+add tag
+
+create load balancer.....................................
+
+got back to your auto scaling groups->actions->edit-> add load balancers -> select application-> select target group youve created
+
+update.........................
+
+go to load balancers
+
+select -> copy the dns name
+
+go terminal-> ssh too your ec2 thourgh public ip
+
+sudo apt-get install stress-ng
+
+stress-ng --cpu  1 --vm 0 --vm-bytes 90% --hdd 0 --timeout 600
+
+another stress command if the above does not work(do in the ec2 instances created by ASG):
+sudo apt update && sudo apt install -y stress 
+stress --cpu 4 --io 2 --vm 2 --vm-bytes 128M --timeout 600
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+in database grant creation: -
+GRANT ALL PRIVILEGES ON *.* TO 'msis'@'%' WITH GRANT OPTION;
+GRANT PROCESS ON *.* TO 'msis'@'%';
+
+
+mysqldump --databases cafedb -u msis --host <private ip> -p > CafeDbDump.sql
+
+error privilate not globally.....
+
+To restore to rds:
+mysql -u admin -h <rdsendpoint> -p < CafeDbDump.sql
+
+
+
