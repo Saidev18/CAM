@@ -1,0 +1,1311 @@
+3118 (guided lab challenged lab)
+5281 (load balancer)
+5757 
+
+
+
+S3- Bulletproof architecture to host static website
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+STEPS:
+
+1)Go to dashboard and search s3 > create bucket
+2)	--> Name: cafestaticbucket
+	--> Enable ACL
+    	--> Uncheck Block all public access box
+	--> Acknoweldge
+   	--> Enable bucket versioning option
+								CREATE BUCKET
+IN TERMINAL
+-----------------------
+3)sudo git clone https://github.com/sreepathysois/static-website 
+
+ IN AWS
+-------------------
+4)(click on created bucket > upload)
+	-->Choose folders css/ images/ 
+	-->Choose file index.html
+							UPLOAD
+
+5)Select all files uploaded and go to actions >make public using ACL 
+
+6) Go to Properties tab in S3 
+	--> scroll to static website hosting > EDIT
+	--> Enable static website hosting
+	--> Under index document >type index.html
+										SAVE CHANGES
+7)scroll to static website hosting again
+    	--->click on url for the result
+____________________________________________________________________________________________________________________
+
+php-mysql app
+------------------------------------
+login into public ip using ssh
+Terminal
+->cd Downloads
+sudo chmod 600 labsuser.pem
+->sudo scp -i labsuser.pem labsuser.pem ubuntu@(webserver public ip):/home/ubuntu
+->sudo ssh -i labsuser.pem ubuntu@(public ip)
+
+INSIDE PUBLIC
+
+sudo git clone https://github.com/sreepathysois/phpmysql-app
+cd /phpmysql-app/php/online-shopping-system
+sudo mkdir /var/www/html/ecommapp
+cd .. 
+in php 
+           -->sudo cp -rf online-shopping-system/* /var/www/html/ecommapp/.
+sudo nano etc/apache2/sites-available/000-default.conf
+	Document root add    /ecommapp
+sudo systemctl restart apache
+now copy private ip
+ssh -i labsuser.pem ubuntu@private-ip
+sudo apt-get update
+sudo apt-get install php mysql-server mysql-client php-mysql 
+sudo git clone https://github.com/sreepathysois/phpmysql-app
+sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+	-->change  bind adress: 0.0.0.0
+sudo systemctl restart mysql.service
+sudo mysql -u root -p
+-->logs into mysql
+------->create database ecommapp;
+------------>CREATE,ALTER,GRANT COMMAND 
+------------->source phpmysql-app/php/online-shopping-system/database/onlineshop.sql
+exit-mysql
+
+cd  /var/www/html/ecommapp
+sudo nano db.php
+	--->severname:paste private ip
+	-->username:msis
+	---->password:cloud@321
+sudo systemctl restart apache
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+4. Design a cloud virtual network in a region to host web servers and database servers in a highly available and fault-tolerant fashion. Also to address the need of making database layer private.
+
+
+-Host web servers on public subnet and unmanaged db servers on private subnet
+-you can try in sandbox
+-CFA: Module 5 Lab 2(its not exact solution, but you can practice using this lab)
+-Cloud architecting: Module 5 Challenge lab
+-Challenge (Cafe) lab: Creating a VPC Networking Environment for the Café
+-Challenge (Cafe) lab: Creating a Dynamic Website for the Café
+**you can use both labs to practice
+
+STart the lab-> VPC (open in new tab)
+
+CREATE VPC
+-> VPC settings (VPC and more)
+-> Name tag auto generate(labVPC)
+-> ipv4 cidr block (10.0.0.0/16)
+->Customize subnets CIDR blocks
+     Public subnet(10.0.1.0/24)
+     Public subnet(10.0.2.0/24)
+     Private subnet(10.0.3.0/24)
+     Private subnet(10.0.0.0/24)
+     
+-> NAT Gateway (in 1AZ)
+-> VPC endpoints (None)
+CREATE VPC
+
+EC2 instance(open in new tab)
+
+->Name-webserver
+->AMI-ubuntu 24.04
+->Instance type- t2.micro
+->key pair login- vockey
+->Network settings(Edit)
+     VPC- labVPC
+     Subnet- Public Subnet
+     auto assign ip- Enable
+ ->Add security group
+       type- HTTP
+       Source type- Anywhere
+
+Launch INstance
+
+Create one more EC2 instance
+
+->Name-dbserver
+->AMI-ubuntu 24.04
+->Instance type- t2.micro
+->key pair login- vockey
+->Network settings(Edit)
+     VPC- labVPC
+     Subnet- Private Subnet
+     auto assign ip- Disable
+->Security group
+      type- SSH
+      Source type- Custom
+      Source- launch wizard 1
+->Add security group
+       type- Mysql/Aurora
+       Source type- Custom 
+       Source- launch wizrd 1
+       
+LAUNCH NSTANCE
+       
+Download PEM file 
+
+Terminal
+->cd Downloads
+->sudo scp -i labsuser.pem labsuser.pem ubuntu@(webserver public ip):/home/ubuntu
+->sudo ssh -i labsuser.pem ubuntu@(public ip)
+
+INSIDE PUBLIC
+->sudo apt-get update
+->sudo git clone https://github.com/sreepathysois/Cafe_Dynamic_Website
+->sudo apt-get install apache2 libapache2-mod-php php-mysql mysql-client php
+->sudo systemctl enable apache2
+->sudo systemctl start apache2
+->cd Cafe_Dynamic_website
+(inside folder)
+->sudo cp -r mompopcafe/ /var/www/html
+->cd /var/www/html (check if copied)
+->ls
+->sudo nano /etc/apache2/sites-available/000.default.conf
+(change Document root /var/www/html/mompopcafe)
+->sudo systemctl restart apache2
+
+Copy the public ip and paste in browser
+
+INSIDE PUBLIC
+(copy ip of private ip of dbserver)
+
+->sudo ssh -i labsuser.pem ubuntu@(ip)
+(INSIDE PRIVATE)
+->sudo apt-get update
+->sudo apt-get install php-mysql mysql-client mysql-server php
+->sudo systemctl restart mysql.service
+
+->sudo git clone https://github.com/sreepathysois/Cafe_Dynamic_Website
+->cd Cafe_Dynamic_Website
+->cd mompopdb
+->sudo mysql -u root -p
+(INSIDE MYSQL)
+->source create-db.sql
+->CREATE USER 'msis'@'%' IDENTIFIED WITH mysql_native_password BY 'cloud@321';
+->ALTER USER 'msis'@'%' IDENTIFIED WITH mysql_native_password BY 'cloud@321';
+->GRANT ALL PRIVILEGES ON mom_pop_db.* TO 'msis'@'%' WITH GRANT OPTION;
+->exit
+(INSIDE PRIVATE)
+->sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+  (change the bind adress to 0.0.0.0)
+->sudo systemctl restart mysql
+->exit
+(Exit from private)
+(INSIDE PUBLIC)
+->sudo nano /var/www/html/mompopcafe/getAppParameters.php
+(change the following
+  db_url=(private ip)
+  user=msis
+  password=cloud@321
+  db_name=mom_pop_db
+(Reload the web and it will show menu)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+MANAGED 
+
+STart the lab-> VPC (open in new tab)
+
+CREATE VPC
+-> VPC settings (VPC and more)
+-> Name tag auto generate(labVPC)
+-> ipv4 cidr block (10.0.0.0/16)
+->Customize subnets CIDR blocks
+     Public subnet(10.0.1.0/24)
+     Public subnet(10.0.2.0/24)
+     Private subnet(10.0.3.0/24)
+     Private subnet(10.0.0.0/24)
+     
+-> NAT Gateway (in 1AZ)
+-> VPC endpoints (None)
+CREATE VPC
+
+EC2 instance(open in new tab)
+
+->Name-webserver
+->AMI-ubuntu 24.04
+->Instance type- t2.micro
+->key pair login- vockey
+->Network settings(Edit)
+     VPC- labVPC
+     Subnet- Public Subnet
+     auto assign ip- Enable
+ ->Add security group
+       type- HTTP
+       Source type- Anywhere
+
+Launch INstance
+
+RDS(open in new tab)
+Create Database
+->Engine type-Mysql
+->Template-> free tier
+->credentials ssettings
+     ->Master username- admin
+     -> Master password- cloud321
+     -> confirm master pass-cloud321
+     
+->db.t3.micro
+->Storage
+    ->storage autoscaling
+          ->Enable storage sutoscaling
+->connectivity
+     ->labvpc
+->VPC security group 
+    ->create new
+     name-dbsg
+     
+     
+CREATE DATABASE
+
+(TERMINAL)
+copy ec2 public ip 
+-> cd Downloads
+->sudo scp -i labsuser.pem labsuser.pem ubuntu@(public ip):/home/ubuntu
+->sudo ssh -i labsuser.pem ubuntu@(public ip)
+
+INSIDE PUBLIC
+->sudo apt-get update
+->sudo git clone https://github.com/sreepathysois/Cafe_Dynamic_Website
+->sudo apt-get install apache2 libapache2-mod-php php-mysql mysql-client php
+->sudo systemctl enable apache2
+->sudo systemctl start apache2
+->cd Cafe_Dynamic_website
+(inside folder)
+->sudo cp -r mompopcafe/ /var/www/html
+->cd /var/www/html (check if copied)
+->ls
+->sudo nano /etc/apache2/sites-available/000-default.conf
+(change Document root /var/www/html/mompopcafe)
+->sudo systemctl restart apache2
+
+Copy the public ip and paste in browser
+(website opens but menu is not opening)
+    
+->RDS->Databases->Connectivity and security-> Security-> VPC security group ->click on it->click on security group
+->edit inbound rules->Type-mysql/aurora
+                      Source- anywhere
+                      SAVE RULES
+
+TERMINAl
+
+->cd Cafe_Dynamic_Website/mompopdb
+-> sudo mysql -u admin -h (paste RDS endpoint) -p
+(Enter pass cloud321)
+
+INSIDE SQL
+->source create-db.sql
+->CREATE USER 'msis'@'%' IDENTIFIED WITH mysql_native_password BY 'cloud@321';
+->ALTER USER 'msis'@'%' IDENTIFIED WITH mysql_native_password BY 'cloud@321';
+->GRANT ALL PRIVILEGES ON mom_pop_db.* TO 'msis'@'%' WITH GRANT OPTION;
+->exit
+
+INSIDE PUBLIC
+->sudo nano /var/www/html/mompopcafe/getAppParameter
+(change the following
+     db_url="(paste rds endpoint)"
+     db_user="msis"
+     db_name="mom_pop_db"
+     db_password="cloud@321")
+->sudo systemctl restart apache2
+
+(NOw reload the website menu)
+
+
+================================================================================================================================================================================================
+
+Cloud formation (Automate Infrastructure)
+Architecting module 11
+
+Lambda
+Architecting module 14 serverlesss 
+
+EBS
+cloud foundation module 
+Module 7
+
+Monolithic to microservice 
+Architecting Module 14
+
+Load balancer 
+Architecting module 10
+
+
+EFS
+Cloud architecting
+Module 5 Guided Lab
+
+
+create user 'msis'@'%' identified with mysql_native_password by 'Msois@123';
+
+alter user 'msis'@'%' identified with mysql_native_password by 'Msois@123';
+
+grant all privileges on cafedb.* to 'msis'@'%' with grant option;
+
+
+
+##EC2  Standalone For LOAD BALANCER###############
+
+sudo git clone https://github.com/sreepathysois/Cafe_Dynamic_Website
+
+sudo mkdir /var/www//html/cafeapp  (if not working) (sudo apt install apache2 -y)
+cd Cafe_Dynamic_Website
+
+sudo cp -rf mompopcafe/* /var/www/html/cafeapp/ .
+
+sudo nano /etc/apache2/sites-available/000-default.conf
+
+add this line to this file 
+
+/var/www/html/cafeapp
+
+sudo systemctl restart apache2
+
+
+sudo mysql -u root -p
+
+create database cafedb;
+
+create user 'msis'@'%' identified with mysql_native_password by 'Msois@123';
+alter user 'msis'@'%' identified with mysql_native_password by 'Msois@123';
+grant all privileges on cafedb.* to 'msis'@'%' with grant option;
+
+exit
+
+cd 
+
+cd Cafe_Dynamic_Website/mompopdb
+
+(check the create-db.sql file is there or not)
+
+sudo mysql -u msis -p
+Password:Msois@123
+
+show databases;
+
+use cafedb;
+
+source create-db.sql;
+
+show tables;
+
+exit;
+
+cd /var/www/html/cafeapp
+
+sudo nano getAppparameters.php
+
+dburl="localhost";
+dbname="cafedb";
+dbuser="msis"
+dbpassword="Msois@123"
+
+sudo systemctl restart apache2
+
+Now you your public ip in browser http://<publicip>
+
+Wow..Congratulations!!!!!@!!!!!!!!!!! You Have Successfully Created a Dynamic Website 
+
+Next go to instance and select actions in that -> image and template-> create image
+ 
+givename-cafeimage
+
+add tag
+
+->create image
+
+ STEP 2  check ami it will be apper<image>
+
+go to launch template in that = create
+
+give<template name>
+ 
+template version-> cafeweb template
+
+add tag
+
+select my ami-> select your created ami
+
+instance type-> t2.micro
+
+keypair
+
+dont select any subnets....
+
+create sg-><givename>
+
+select created vpc
+
+inbound security group add-> ssh and HTTP->anywhere
+
+in advance details->>
+
+cloudwatch monitoring = enable
+
+create launch template..........
+
+go to launch template - select created temp -> in actions-> create auto scaling group
+
+auto scaling group.....
+
+give name<acg>
+
+select your created template............................. next
+
+step 2
+
+select your vpc in network
+
+availiability zone->>  select your two private subnets next.......
+
+step 3
+
+no changes in that
+
+step 4...... 
+
+desired capacity= 2
+
+scaling=== min2 max6
+
+automatic scaling--- select target tracking policy
+
+metric type== avearge cpu utilization
+target value= 50
+
+instamce warmup=60
+
+in that last additional settings->> monitoring=select (cloudwatch metrics).........next
+
+step 5  no changes..........
+
+step 6 add tag
+
+ reveiw and create asg......
+
+go to asg see created will come
+
+go loadbalancers-> create load balancers-> select application load balancers
+
+give name <lb>
+
+network mapping -> select your vpc
+
+AZ select two public subnets in two availiabilty zones.....
+.................................................................................................................
+
+security group-> create a sg link
+
+give name
+
+select your vpc
+
+in bound rules-> ssh and htpp anywhere
+
+add tag
+
+create.........
+.................................................................................................................
+go back to your load balancers selcted  add your created secuirty group
+
+listerners and routing -> create target link
+
+choose target type-> instnance
+
+target group name-> <name>
+
+add tag 
+
+next.........
+
+select your registerd ec2 instance and select button below
+.............................................................................................................
+ got back load balancers and select your target group-> select created
+
+add tag
+
+create load balancer.....................................
+
+got back to your auto scaling groups->actions->edit-> add load balancers -> select application-> select target group youve created
+
+update.........................
+
+go to load balancers
+
+select -> copy the dns name
+
+go terminal-> ssh too your ec2 thourgh public ip
+
+sudo apt-get install stress-ng
+
+stress-ng --cpu  1 --vm 0 --vm-bytes 90% --hdd 0 --timeout 600
+
+
+$$$$$$$ CONGRATUALTIONS BROTHER
+
+############################   YOU ARE SELECTED FOR FLIPKART BIG BILLLION DAYS SALE EMPLOYEEEE################################
+
+
+
+
+Ec2 Dynamic Website
+	-http allow 
+
+download labsuser.pem
+	-grant premission -read and write
+	sudo -chmod 600 labsuser.pem
+
+dependiences
+
+sudo ssh -i labsusers.pem ubuntu@publicip
+
+sudo apt-get update
+sudo apt-get install apache2 php libapache2-mod-php php-mysql mysql-client mysql-server
+
+
+cd cafe-dynmic-website
+	-mkdir /var/www/html/cafeapp
+sudo cp mompopcafe/* /var/www/html/cafeapp/.
+
+
+sudo nano /etc/apache2/sites-avaliable/000-default.conf
+		
+
+	restart apache2
+sudo ssh 
+
+
+
+
+
+***********************************************************************************************************************************
+full ec2 instance launch
+
+ec2>
+select the region based on 4 parameters
+(region)
+us east 1(n. virginia)>
+launch instance>
+name>
+cafeweeb_server
+app and os image>
+ubuntu>
+ubuntu 22.04 lts>
+confirm>
+t2.micro> --------t is for general purpose. higher the gen, better i.e t1,t2,t3,.... .micro, smalll, large
+key value pair>
+////(pem file for ubuntu) (.ppk file for windows)
+vockey>
+//network settings>
+//edit>
+launch>
+view insatnces>
+////how to connect to instance
+////we had selected the vockey
+open the lab>
+details>
+download pem>
+
+open the ec2>
+select the website name>
+copy public ip address>
+
+
+actions>
+connect>
+////shows how to connect
+
+http://172.16.51.41:8000/dynamic_website_deploy_steps.sh
+
+$ cd Downloads/
+$ sudo chmod 600 labsuser.pem 
+$ sudo ssh -i labsuser.pem ubuntu@3.83.145.211
+$ ip a
+172.31.92.224
+$ sudo apt-get update
+$ sudo apt-get install apache2 php libapache2-mod-php php-mysql mysql-server mysql-client -y
+$ sudo systemctl status apache2
+
+another way to check whether the apache2 is working
+https://3.83.145.211
+but there is no port, is restricted due to security grp
+inbound rule is to check which is allowed into out s/m
+
+security grp>
+
+
+$ sudo git clone https://github.com/sreepathysois/Cafe_Dynamic_Website.git
+ sudo nano /etc/mysql/mysql.conf.d/mysqld.conf
+	bind-address = 127.0.0.1
+	change the above>
+	bind-address = 0.0.0.0
+
+
+
+$ ls
+$ sudo mkdir /var/www/html/cafeapp
+$ sudo cp -rf mompopcafe /var/www/html/cafeapp. 
+$ sudo nano /etc/apache2/sites-available/000-default.conf 
+	ServerAdmin webmaster@localhost
+        DocumentRoot /var/www/html/cafeapp
+$ sudo systemctl restart apache2
+$ sudo mysql -u root -p
+
+mysql> create database mom_pop_db;
+
+create user 'msis'@'%' identified with mysql_native_password by 'Msois@123';
+
+alter user 'msis'@'%' identified with mysql_native_password by 'Msois@123';
+
+grant all privileges on cafedb.* to 'msis'@'%' with grant option;
+
+mysql> exit
+
+$ sudo mysql -u msis -p
+$ Password:Msois@123
+
+mysql> show databases;
+
+mysql> use mom_pop_db;
+
+mysql> source Cafe_Dynamic_Website/mompopdb/create-db.sql;
+
+mysql> show tables;
+
+mysql> exit
+
+$ cd /var/www/html/cafeapp
+
+$ sudo nano getAppParameters.php
+php
+  // Get the application environment parameters from the Parameter Store.
+  //include ('getAppParameters.php');
+  $showServerInfo = "false";
+  $timeZone = "America/New_York";
+  $currency = "$";
+  $db_url = "localhost";
+  $db_name = "mom_pop_db";
+  $db_user = "msis";
+  $db_password = "Msois@123";
+  
+  // Display the server metadata information if the showServerInfo parameter is true.
+  //include('serverInfo.php');
+
+$ sudo systemctl restrat apache2
+
+http://<public ip> in browser
+
+
+************************************************************************************************************************************************************************************
+AWS Academy Cloud Foundations
+Lab - 4 Working with EBS 
+start lab>
+ec2>
+instances>
+lab <check>>
+
+volume>
+create volume>
+size>
+1
+az>
+//create the volume in the same az as that of ec2
+tag>
+key>
+name
+value>
+myvolume
+create>
+
+myvolume <check>>
+actions>
+attach vol>
+instance>
+lab>
+device name>
+/dev/sdb>  -----/dev is for linux
+
+instance>
+lab <check>>
+public ip addr <copy>>
+
+$ cd Downloads
+//delete pem file if already exists
+//download .pem file form lab
+$ sudo chmod 600 labsuser.pem
+$ sudo ssh -i labsuser.pem ec2-user@98.82.8.9
+
+go back to aws ec2>
+connect>
+
+$ cat /etc/os-release
+$ sudo yum update
+$ sudo yum install httpd --------httpd is for apache
+$ sudo systemctl status httpd
+$ sudo systemctl start httpd
+
+	$ df -h
+	$ free -h
+	$ lsblk
+	//to check the memory of complete s/m
+	
+$ df -h
+	/dev/xvda1      8.0G  1.6G  6.4G  20% /    ------------the prev /dev/sdb file is changed
+$ sudo file -s /dev/xvd <tab>
+$ sudo file -s /dev/xvdb  --------------------------- to check is block device has a  file s/m or not
+	/dev/xvdb: data   ----- no file s/m
+$ sudo file -s /dev/xvda
+	/dev/xvda: DOS/MBR boot sector, extended partition table (last)
+$ sudo mkfs -t ext3 /dev/xvdb  ---------------to format the file s/m
+$ sudo file -s /dev/xvdb
+	/dev/xvdb: Linux rev 1.0 ext3 filesystem data, UUID=1abc5eb0-c39d-4632-ae02-fd30c86eb973 (large files)
+//this remains untill we refersh
+//for permanent change, we can write to this file ---- /etc/fstab
+$ df -h   ----------not mounted, so file cannot be seen
+$ sudo mkdir /mnt/myvolume ----we mount here
+$ sudo mount /dev/xvdb /mnt/myvolume/
+$ df -h
+	/dev/xvdb       975M   60K  924M   1% /mnt/myvolume
+
+$ cd /mnt/myvolume/
+$ sudo touch mydata
+$ sudo cat > mydata 
+	-bash: mydata: Permission denied
+$ sudo chown -R ec2-user:ec2-user .
+$ sudo cat > mydata 
+	this is an example of ec2 user
+	^C
+$ cat mydata 
+	this is an example of ec2 user
+
+//take backup of data or volume and restore it to another instance
+//we capture a snapshot and create a new vol and attach the volume 
+//we thne check of the data is restored
+
+volume>
+actions>
+create snapshot>
+desc>
+this is a snapshot of myvolume
+tag>
+key>
+Name
+value>
+myvolumesnapshot
+creat>
+
+snapshots>
+//create a new vol from snapshot from and then attaching it
+myvolumesnapshot <check>>
+actions>
+create a vol>
+tag>
+key>
+Name
+Vlaue>
+restorevolumesnapshot
+create>
+
+volume>
+restorevolumesnapshot>
+actions>
+attach vol>
+
+
+
+$ cd /mnt/myvolume/
+$ ls
+	lost+found  mydata
+$ sudo mkdir /mnt/restorevolume
+$ sudo file -s /dev/xvdc
+$ sudo mount /dev/xvdc /mnt/restorevolume/
+$ df -h
+$ cd /mnt/restorevolume
+$ ls
+$ cat mydata
+
+
+RDS steps 
+Open the RDS Console:
+
+Navigate to the RDS Dashboard and click on Create Database.
+Choose Database Engine:
+
+Select the database engine (e.g., MySQL, PostgreSQL, or any supported one).
+Configure Database Settings:
+
+Choose Standard Create for more control.
+Specify database version, DB inQstance class, storage type, and capacity.
+Set Up Networking:
+
+Select the VPC created earlier.
+Choose a private subnet group for better security.
+Enable Public Access only if necessary.
+Configure the security group to allow EC2 instances or other resources to access the database.
+Database Authentication:
+
+Choose a username and password or use IAM authentication.
+Review and Launch:
+
+Review all configurations and click Create Database.
+Step 3: Launch an EC2 Instance
+Open the EC2 Console:
+
+Navigate to the EC2 Dashboard and click on Launch Instances.
+Choose AMI and Instance Type:
+
+Select an appropriate Amazon Machine Image (e.g., Amazon Linux 2) and instance type (e.g., t2.micro).
+Configure Instance Details:
+
+Select the same VPC and public subnet as created earlier.
+Enable Auto-assign Public IP if the EC2 instance needs to communicate with the internet.
+Set Up Security Group:
+
+Add a security group that allows:
+SSH access (port 22) from your IP.
+Database access (port 3306 for MySQL) from the private subnet.
+Add Storage and Tags:
+
+Add EBS volume if required and set necessary tags for organization.
+Review and Launch:
+
+Launch the EC2 instance and download the key pair for SSH access.
+Step 4: Connect EC2 and RDS
+Update Security Groups:
+
+Ensure the RDS security group allows traffic from the EC2 instance's private IP or security group.
+Configure the Application:
+
+Log in to the EC2 instance using SSH.
+Install the database client for the RDS engine (e.g., MySQL client).
+Connect to RDS using the private endpoint provided during setup.
+Example command for MySQL:
+
+bash
+Copy code
+mysql -h <rds-endpoint> -u <username> -p
+Step 5: Test and Secure the Solution
+Verify Connectivity:
+
+Ensure EC2 can connect to RDS and that the application runs as expected.
+Enhance Security:
+
+Use IAM roles for the EC2 instance and RDS authentication.
+Enable RDS encryption and backups.
+Monitor Resources:
+
+Set up CloudWatch alarms for performance and cost monitoring.
+This setup ensures a secure and scalable managed solution with separate public and private environments. 
+
+‐----------------------------------------------------------------‐--------------------------
+-------monolithic to micriservices
+-------,------------------------------------------------------------------------------------
+
+    9. Provide solution to migrate cafÃ© application to micro services and design a solution to deploy micro services using AWS infrastructure and services. 
+-migrating to microservices from monolithic application
+-sandbox -
+
+1)Open cloud9
+
+2)paste this in the terminal
+curl -s https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACACAD-3-113230/19-lab-mod14-guided-ECS/s3/lab-files-ms-node-js.tar.gz | tar -zxv
+
+3)ls
+
+4)cd 1-no-container
+
+5)sudo npm install
+
+6)npm start
+
+7)open new terminal
+
+8)curl http://localhost:3000/api/users
+curl http://localhost:3000/api/users/1
+curl http://localhost:3000/api/threads
+curl http://localhost:3000/api/posts/in-thread/1
+
+9)Go to the first terminal(Previous terminal)
+
+10)ctrl + c, clear
+
+11)cd
+
+12)cd 2-containerized-monolithic/
+
+13)cat Dockerfile
+
+14)docker build -t mcb-repo:latest
+
+15)Go to Elastic Container Registry(ECR)
+
+16)private registry->repositories->create repository
+
+17)Repository name: mcb-repo
+
+18)click on create
+
+19)click on view push commands
+
+20)copy 1st command
+
+21)paste that in cloud9 terminal
+
+22)Now copy the 3rd command
+
+23)Paste that in cloud9 terminal
+
+24)Now copy that 4th command
+
+25)Paste that in cloud9 terminal
+
+26)Go to Elastic Cintainer Service(ECS)
+
+27)click on create cluster
+
+28)cluster name: mcb-cluster
+
+29)click on Amazon EC2 Instances under Infrastructure and uncheck the AWS Fargate
+
+30)select AMI as Amazon Linux 2023
+
+31)select instance type as t2.medium
+
+32)select instance role as EMR_EC2_DefaultRole
+
+33)Desired capacity: give minimun as 2 and maximum as 2
+
+34)And key pair as vockey
+
+35)Root EBS Volume size: 50\
+
+36)select vpc as labvpc
+
+37)give subnets as public subnet 1 and public subnet 2
+
+38)choose the security group
+
+39)click on create
+
+40)click on Task definitions in the side panel
+
+41)create new task definition
+
+42)Task definition family: mcb-task
+
+43)click on Amazon EC2 Instances under Infrastructure and uncheck the AWS Fargate
+
+44)Container name as: mcb-monolithic
+
+45)Go to mcb-repo, copy its Image URI
+
+46)paste that URI in the Image URI
+
+47)container port: 3000
+
+48)CPU:1
+GPU:1
+Memory hard limit: 3
+Memory soft limit: 1
+
+49)click on create
+
+50)click on your mcb-cluster
+
+51)Go to infrastructure
+
+52)click on create
+
+53)Under Deployment configuration
+select mcb-task as family
+
+54)tick on the "specify the revision manually"
+
+55)Service name: mcb-service
+
+56)Under networking
+choose the security group instead of default
+
+57)under Load balancing select Application Load Balancer as type
+
+58)Load Balancer name: mcb-elb
+
+59)click on create
+
+60)copy the mcb-elb DNS name and paste in browser
+
+================================================================================================================================================================
+CLOUD ARCHITECTURE , MODULE 11 -> AUTOMATING INFRASTRUCTURE WITH AWS CLOUDFORMATION(STEPS ARE THERE FOLLOW IT)
+in that bucket name how to find .....
+
+
+IDK THAT IL TRY TO PUT STEPS WATCHING VIDEO
+
+
+im saying task 2 step 16 part what stack iur saying
+
+if u login it logs out here (i m not logging in) il add stpes
+
+->cloud formation(open in new tab) ->create stack ->with new resource
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!idk what ur talking this step is not there in the guide (idk im following sir video which he taught in class)
+
+
+
+theseeeeeeeeeeeeeeeeeeeeee steps are not thereeeeeeeeeeeeeeeeeeeee here
+no option to choose templateee
+ ->choose an existing template
+->SPECIFY TEMPLATE
+      ->upload 
+(upload lab-network.yaml)ask sir for this file maybe
+
+NEXT
+
+->Provide a stack name-lab-network
+
+NEXT
+
+add a tag
+key-app
+value-cafeapp
+
+NEXT
+
+SUBMIT
+
+NEXT
+
+provide stack name- lab-appliccation
+
+NEXT
+
+configure stack options
+    -> add tag   key-app   value-cafeapp
+
+NEXT
+
+SUBMIT
+
+(CREATE SHOULD BE COMPLLETE)
+
+click on lab-application ->outputs ->click on that URL->open in new tab -> website opens saying congradulations you have successsfully......
+
+just show this to sir saying that you deployeed website 
+
+
+->click on lab-application ->update stack ->replace existing template
+upload a template file (choose lab-application2.yaml)
+
+NEXT
+NEXT
+
+NEXT
+
+NEXT
+SUBMIT
+
+invideo 
+
+
+_______________________________________________________________________________________________________________________________________________________________
+
+MIGRRATION TO ANOTHER REGION
+
+
+create ec2 instance : Resources:
+  MyEC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: "t2.micro"  # Change as needed
+      ImageId: "ami-0abcdef1234567890"  # Replace with a valid AMI ID in your source region
+      KeyName: "vockey"  # Replace with your Key Pair name
+      SecurityGroups:
+        - Ref: MySecurityGroup
+
+  MySecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Allow SSH and HTTP"
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "tcp"
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: "0.0.0.0/0"
+
+Step 2: Create an AMI of the Instance
+Navigate to the EC2 Instances:
+
+Locate the instance you just created.
+Select the instance, click Actions > Image and templates > Create Image.
+Fill in Image Details:
+
+Provide a name for the AMI (e.g., MyEC2InstanceAMI).
+Click Create Image.
+Monitor the Image Creation:
+
+Go to Images > AMIs in the EC2 console.
+Wait until the status of the AMI changes to Available.
+
+
+Step 3: Copy the AMI to Another Region
+Navigate to the AMIs Section:
+
+In the source region, select the AMI you created.
+Click Actions > Copy AMI.
+Configure Copy Settings:
+
+Select the Destination Region.
+Provide a name for the copied AMI (e.g., MyCopiedAMI).
+Click Copy AMI.
+Switch to the Destination Region:
+
+Change the region in the top-right corner of the AWS console to the destination region.
+Navigate to AMIs and verify that the copied AMI is available.
+
+
+Step 4: Launch an EC2 Instance from the Copied AMI
+In the Destination Region:
+
+Navigate to EC2 Dashboard > AMIs.
+Locate the copied AMI, select it, and click Launch Instance from Image.
+Configure Instance Settings:
+
+Repeat the configuration steps as in Step 1, ensuring you select the appropriate VPC, subnet, and security groups for the new region.
+Launch the Instance:
+
+Choose or create a key pair for SSH access.
+Click Launch.
+
+======================================================================================================================================================================
+migration in cloudformation
+
+
+[11:22 am, 4/12/2024] Sumukha Bro: Step 1: Create an EC2 Instance in the Source Region
+Navigate to the EC2 Dashboard:
+
+Log in to the AWS Management Console.
+Select the desired source region in the top-right corner.
+Go to CloudFormation:
+
+In the Services menu, search for and select CloudFormation.
+Create a New Stack:
+
+Click Create Stack > With New Resources (Standard).
+In the Template Source section, choose Use a sample template.
+Select the sample template for EC2 instances (or manually configure a template inline if needed).
+Fill in Stack Details:
+
+Name the stack (e.g., MySourceEC2Stack).
+Provide input parameters such as:
+Instance type (e.g., t2.micro).
+Key pair for SSH access.
+AMI ID valid in the source region (find this in the EC2 Dashboard under AMIs).
+Follow the wizard and click Create Stack.
+Verify the Instance:
+
+Once the stack status is CREATE_COMPLETE, navigate to EC2 > Instances.
+Verify the instance is running.
+[11:23 am, 4/12/2024] Sumukha Bro: Step 2: Create an AMI of the EC2 Instance
+Navigate to the EC2 Dashboard:
+
+Locate the instance created in the source region.
+Select the instance, click Actions > Image and templates > Create Image.
+Fill in the Details:
+
+Provide a name for the AMI (e.g., SourceRegionAMI).
+Click Create Image.
+Monitor the AMI Creation:
+
+Go to Images > AMIs in the EC2 console.
+Wait until the AMI status changes to Available.
+[11:23 am, 4/12/2024] Sumukha Bro: Step 3: Copy the AMI to Another Region
+Navigate to the AMIs Section:
+
+In the source region, select the AMI you created.
+Click Actions > Copy AMI.
+Configure Copy Settings:
+
+Select the Destination Region.
+Provide a name for the copied AMI (e.g., CopiedAMIToTargetRegion).
+Click Copy AMI.
+Switch to the Destination Region:
+
+Change the region in the top-right corner to the target region.
+Navigate to AMIs and verify that the copied AMI is available.
+[11:23 am, 4/12/2024] Sumukha Bro: Got it! Here's a step-by-step guide for creating and migrating an EC2 instance to another AWS region using only the AWS Management Console with CloudFormation:
+
+Step 1: Create an EC2 Instance in the Source Region
+Navigate to the EC2 Dashboard:
+
+Log in to the AWS Management Console.
+Select the desired source region in the top-right corner.
+Go to CloudFormation:
+
+In the Services menu, search for and select CloudFormation.
+Create a New Stack:
+
+Click Create Stack > With New Resources (Standard).
+In the Template Source section, choose Use a sample template.
+Select the sample template for EC2 instances (or manually configure a template inline if needed).
+Fill in Stack Details:
+
+Name the stack (e.g., MySourceEC2Stack).
+Provide input parameters such as:
+Instance type (e.g., t2.micro).
+Key pair for SSH access.
+AMI ID valid in the source region (find this in the EC2 Dashboard under AMIs).
+Follow the wizard and click Create Stack.
+Verify the Instance:
+
+Once the stack status is CREATE_COMPLETE, navigate to EC2 > Instances.
+Verify the instance is running.
+Step 2: Create an AMI of the EC2 Instance
+Navigate to the EC2 Dashboard:
+
+Locate the instance created in the source region.
+Select the instance, click Actions > Image and templates > Create Image.
+Fill in the Details:
+
+Provide a name for the AMI (e.g., SourceRegionAMI).
+Click Create Image.
+Monitor the AMI Creation:
+
+Go to Images > AMIs in the EC2 console.
+Wait until the AMI status changes to Available.
+Step 3: Copy the AMI to Another Region
+Navigate to the AMIs Section:
+
+In the source region, select the AMI you created.
+Click Actions > Copy AMI.
+Configure Copy Settings:
+
+Select the Destination Region.
+Provide a name for the copied AMI (e.g., CopiedAMIToTargetRegion).
+Click Copy AMI.
+Switch to the Destination Region:
+
+Change the region in the top-right corner to the target region.
+Navigate to AMIs and verify that the copied AMI is available.
+Step 4: Deploy the EC2 Instance in the Target Region Using CloudFormation
+Navigate to CloudFormation in the Target Region:
+
+Go to CloudFormation in the target region.
+Click Create Stack > With New Resources (Standard).
+Use an Existing AMI:
+
+In the template section, select Use a sample template or choose an existing one.
+Specify the AMI ID from the copied AMI in the target region.
+Configure Stack Parameters:
+
+Provide instance type, key pair, and other parameters required for the CloudFormation stack.
+Deploy the Stack:
+
+Complete the stack creation process.
+Wait for the stack to show CREATE_COMPLETE.
+Verify the EC2 Instance:
+
+Navigate to the EC2 Dashboard in the target region.
+Verify that the new instance is running.
