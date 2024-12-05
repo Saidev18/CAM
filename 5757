@@ -1,0 +1,438 @@
+
+ sudo apt-get update -y
+
+sudo apt-get install apache2 php libapache2-mod-php php-mysql mysql-server mysql-client -y
+
+sudo git clone https://github.com/sreepathysois/Cafe_Dynamic_Website.git
+
+cd Cafe_Dynamic_Website
+
+sudo cp -rf mompopcafe /var/www/html/. 
+
+create database cafedb;
+
+CREATE USER 'msis'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Msois@123';
+
+ALTER USER 'msis'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Msois@123'
+
+GRANT ALL PRIVILEGES ON cafedb.* TO 'msis'@'localhost' WITH GRANT OPTION;
+
+source create-db.sql
+
+---------------------------------------------------------------------------------------------
+to copy
+sudo scp -i labsuser.pem labsuser.pem@public:/home/ubuntu
+sudo nano /etc/sql/sql.config.d/mysqld.config
+sudo systemctl restart mysql.service
+sudo mysql -u msis -h private@ip -p
+
+
+----------------------------------------------------------------------------------------------
+
+#network :
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Network layer for the cafe"
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: Cafe VPC
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Cafe IGW
+
+  VPCtoIGWConnection:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn:
+      - IGW
+      - VPC
+    Properties:
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref VPC
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: Cafe Public Route Table
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn:
+      - PublicRouteTable
+      - VPCtoIGWConnection
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: true
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs
+          Ref: AWS::Region
+      Tags:
+        - Key: Name
+          Value: Cafe Public Subnet
+
+  PublicRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn:
+      - PublicRouteTable
+      - PublicSubnet
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+Outputs:
+  PublicSubnet:
+    Description: The subnet ID to use for public web servers
+    Value:
+      Ref: PublicSubnet
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-SubnetID'
+  VpcId:
+    Description: The VPC ID
+    Value:
+      Ref: VPC
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-VpcID'  
+
+----------------------------------------------------------
+#application :
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Cafe application
+
+Parameters:
+
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  CafeNetworkParameter:
+    Type: String
+    Default: cafenetwork
+    
+  InstanceTypeParameter:
+    Type: String
+    Default: t2.small
+    AllowedValues:
+      - t2.micro
+      - t2.small
+      - t3.micro
+    Description: "Enter t2.micro, t2.small, or t3.micro. Default is t2.micro"
+    
+Mappings:
+
+  RegionMap:
+    us-east-1:
+      "keypair": "vockey"
+    us-west-2:
+      "keypair": "cafe-oregon"
+
+Resources:
+
+  # Define Cafe Security Group (CafeSG)
+  CafeSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH, HTTP access
+      VpcId: !ImportValue
+        'Fn::Sub': '${CafeNetworkParameter}-VpcID'
+
+      Tags:
+        - Key: Name
+          Value: CafeSG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+
+  # Define Cafe Instance
+  CafeInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceTypeParameter
+      KeyName: !FindInMap [RegionMap, !Ref "AWS::Region", keypair]
+      Tags:
+        - Key: Name
+          Value: Cafe Web Server
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          AssociatePublicIpAddress: 'true'
+          SubnetId: !ImportValue
+            'Fn::Sub': '${CafeNetworkParameter}-SubnetID'
+          GroupSet:
+            - !Ref CafeSG
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            yum -y update
+            yum install -y httpd mariadb-server git
+            amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
+            systemctl enable httpd
+            systemctl start httpd
+            systemctl enable mariadb
+            systemctl start mariadb
+
+            # Clone the repository for static site
+            rm -rf /var/www/html/*
+            git clone https://github.com/sreepathysois/cafe-static-website.git /var/www/html/
+
+            # Disable Apache default welcome page
+            mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.bak
+
+            # Restart Apache to apply changes
+            systemctl restart httpd
+
+Outputs:
+  WebServerPublicIP:
+    Value: !GetAtt 'CafeInstance.PublicIp'
+
+
+-----------------------------------------------------------------------------------------------------------------------
+
+s3buckect
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::your-bucket-name/*"
+        }
+    ]
+}
+---------------------------------------------------------------------------------------------------------------
+
+#creating a s3 bucket 
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: my cafe
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+
+
+
+
+
+----------------------
+##
+  UserData:
+
+    Fn::Base64:
+
+      !Sub |
+
+        #!/bin/bash
+
+        yum -y update
+
+        yum install -y httpd mariadb-server wget
+
+        amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
+
+        systemctl enable httpd
+
+        systemctl start httpd
+
+        systemctl enable mariadb
+
+        systemctl start mariadb
+
+        wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACACAD-3-113230/15-lab-mod11-challenge-CFn/s3/cafe-app.sh
+
+        chmod +x cafe-app.sh
+
+        ./cafe-app.sh
+
+
+
+
+--------------------------------------
+
+##shellscript for cafe dynamic
+
+#!/bin/bash
+sudo apt-get update -y
+sudo apt-get install apache2 mysql-server mysql-client php php-mysql libapache2-mod-php -y 
+# Destination directory
+DEST_DIR="/var/www/html/mompopcafe"
+
+# Check if the destination directory exists
+if [ ! -d "$DEST_DIR" ]; then
+    # If the directory doesn't exist, create it
+    sudo mkdir -p "$DEST_DIR"
+    
+    # Copy files only if the destination directory was created
+    if [ $? -eq 0 ]; then
+        sudo cp -rf ./mompopcafe/* "$DEST_DIR/"
+        echo "Files copied to $DEST_DIR."
+    else
+        echo "Failed to create directory $DEST_DIR."
+    fi
+else
+    echo "Directory $DEST_DIR already exists. Skipping copy."
+fi
+#echo "DocumentRoot /var/www/html/bookalbum" | sudo tee -a  /etc/apache2/sites-available/000-default.conf
+#sudo sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/bookalbum|' /etc/apache2/sites-available/000-default.conf
+sudo sed -E -i 's|DocumentRoot[[:space:]]+/var/www/html/[^[:space:]]*|DocumentRoot /var/www/html/mompopcafe|' /etc/apache2/sites-available/000-default.conf
+sudo systemctl restart apache2
+
+# MySQL credentials
+DB_USER="root"
+DB_PASSWORD="Msois@123"
+DB_HOST="localhost"
+DB_NAME="mom_pop_db"
+
+# SQL script
+SQL_SCRIPT="./mompopdb/create-db.sql"
+
+# Execute SQL script using MySQL client
+#mysql -h$DB_HOST -u$DB_USER -p$DB_PASSWORD -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"
+#mysql -h$DB_HOST -u$DB_USER -p$DB_PASSWORD $DB_NAME < $SQL_SCRIPT
+
+# MySQL command to check if the user already exists
+CHECK_USER_QUERY="SELECT user FROM mysql.user WHERE user = 'root';"
+
+# MySQL command to create the user
+ALTER_USER_QUERY="ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Msois@123'";
+CREATE_USER_QUERY="CREATE USER IF NOT EXISTS 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Msois@123';"
+
+# MySQL command to grant privileges to the user
+#GRANT_PRIVILEGES_QUERY="GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;"
+
+# MySQL command to flush privileges
+FLUSH_PRIVILEGES_QUERY="FLUSH PRIVILEGES;"
+
+# Execute MySQL commands
+sudo mysql -u"$DB_USER" -p"$DB_PASSWORD" -h"$DB_HOST" -e "$CHECK_USER_QUERY"
+sudo mysql -u"$DB_USER" -p"$DB_PASSWORD" -h"$DB_HOST" -e "$ALTER_USER_QUERY"
+sudo mysql -u"$DB_USER" -p"$DB_PASSWORD" -h"$DB_HOST" -e "$GRANT_PRIVILEGES_QUERY"
+sudo mysql -u"$DB_USER" -p"$DB_PASSWORD" -h"$DB_HOST" -e "$FLUSH_PRIVILEGES_QUERY"
+echo "User 'root' created and granted privileges."
+
+DB_EXISTS=$(mysql -h$DB_HOST -u$DB_USER -p$DB_PASSWORD -e "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='$DB_NAME';" --skip-column-names)
+
+if [ $DB_EXISTS -eq 0 ]; then
+    # Create the database if it doesn't exist
+    mysql -h$DB_HOST -u$DB_USER -p$DB_PASSWORD -e "CREATE DATABASE $DB_NAME;"
+    
+    # Execute the SQL script
+    mysql -h$DB_HOST -u$DB_USER -p$DB_PASSWORD $DB_NAME < $SQL_SCRIPT
+else
+    echo "Database $DB_NAME already exists. Skipping creation and SQL script execution."
+fi
+
+# Get the IP address of the server
+IP_ADDRESS=$(hostname -I | awk '{print $1}')
+
+# Echo the message with the IP address
+echo "Cafe app is accessible at http://$IP_ADDRESS:80/mompopcafe"
+
+
+
+----------------------------
+
+##amazon shell script file
+
+
+#!/bin/bash
+
+
+
+#This script assumes the following lines were already run as part of userdata before it is called:
+
+#yum -y update
+
+#yum install -y httpd mariadb-server
+
+#amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2 wget
+
+#systemctl enable httpd
+
+#systemctl start httpd
+
+#systemctl enable mariadb
+
+#systemctl start mariadb
+
+#wget https://aws-tc-largeobjects.s3-us-west-2.amazonaws.com/ILT-TF-200-ACACAD-20-EN/mod10-challenge/cafe-app.sh
+
+#chmod +x cafe-app.sh
+
+#./cafe-app.sh
+
+echo '<html><h1>Hello From Your Web Server!</h1></html>' > /var/www/html/index.html
+
+find /var/www -type d -exec chmod 2775 {} \;
+
+find /var/www -type f -exec chmod 0664 {} \;
+
+echo '<?php phpinfo(); ?>' > /var/www/html/phpinfo.php
+
+usermod -a -G apache ec2-user
+
+chown -R ec2-user:apache /var/www
+
+chmod 2775 /var/www
+
+wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACACAD-3-113230/15-lab-mod11-challenge-CFn/s3/setup.tar.gz
+
+tar -zxvf setup.tar.gz
+
+wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACACAD-3-113230/15-lab-mod11-challenge-CFn/s3/db.tar.gz
+
+tar -zxvf db.tar.gz
+
+wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACACAD-3-113230/15-lab-mod11-challenge-CFn/s3/cafe.tar.gz
+
+tar -zxvf cafe.tar.gz -C /var/www/html/
+
+cd db
+
+./set-root-password.sh
+
+./create-db.sh
+
+#region=$(curl http://169.254.169.254/latest/meta-data/placement/availability-zone|sed 's/.$//')
+
+#privIp=$(ifconfig|grep 'inet '|grep -v 127.0.0.1|awk '{print $2}')
+
+#aws ssm put-parameter --name "/cafe/db+Url" --type "String" --value $privIp --overwrite --region $region
+
+#aws ssm put-parameter --name "/cafe/dbPassword" --type "String" --value 'Re:Start!9' --overwrite --region $region
+
+#aws ssm put-parameter --name "/cafe/dbName" --type "String" --value 'cafe_db' --overwrite --region $region
+
+#aws ssm put-parameter --name "/cafe/dbUser" --type "String" --value 'root' --overwrite --region $region
